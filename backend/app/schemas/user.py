@@ -28,19 +28,19 @@ class UserBase(BaseModel):
     )
 
     @validator('full_name')
-        def validate_full_name(cls, v):
-            # Remove extra spaces
-            v = v.strip()
+    def validate_full_name(cls, v):
+        # Remove extra spaces
+        v = v.strip()
             
-            # Check not empty after stripping
-            if not v:
-                raise ValueError("Name cannot be empty or just spaces")
+        # Check not empty after stripping
+        if not v:
+            raise ValueError("Name cannot be empty or just spaces")
             
-            # Check has at least one letter
-            if not any(char.isalpha() for char in v):
-                raise ValueError("Name must contain at least one letter")
+        # Check has at least one letter
+        if not any(char.isalpha() for char in v):
+            raise ValueError("Name must contain at least one letter")
             
-            return v
+        return v
 
 class UserCreate(UserBase):
     """
