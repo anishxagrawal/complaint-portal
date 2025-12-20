@@ -4,13 +4,6 @@
 A clean, scalable FastAPI backend for managing citizen complaints in a smart city.
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.11-blue" />
-  <img src="https://img.shields.io/badge/FastAPI-backend-green" />
-  <img src="https://img.shields.io/badge/tests-26%20passing-brightgreen" />
-  <img src="https://img.shields.io/badge/license-MIT-blue" />
-</p>
-
 ---
 
 ## 🌟 Overview
@@ -23,9 +16,9 @@ Urban complaint systems often fail due to:
 
 This project solves those problems using:
 
-- **Strict validation**
-- **Service-layer architecture**
-- **Test-driven development**
+- Strict validation  
+- Service-layer architecture  
+- Test-driven development  
 
 ---
 
@@ -78,7 +71,6 @@ cd complaint-portal/backend
 
 python3 -m venv venv
 source venv/bin/activate
-
 pip install -r requirements.txt
 Run Server
 bash
