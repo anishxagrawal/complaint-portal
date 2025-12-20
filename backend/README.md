@@ -1,302 +1,203 @@
-🏙️ Smart City Complaint Management Portal
+<h1 align="center">🏙️ Smart City Complaint Management Portal</h1>
 
-A FastAPI-powered backend system for managing citizen complaints in a smart city.
-Citizens can submit complaints via text (voice-ready), and the system automatically validates, categorizes, and routes them to the appropriate municipal departments.
+<p align="center">
+A clean, scalable FastAPI backend for managing citizen complaints in a smart city.
+</p>
 
-🎯 Built with clean architecture, strong validation, and production-ready practices.
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11-blue" />
+  <img src="https://img.shields.io/badge/FastAPI-backend-green" />
+  <img src="https://img.shields.io/badge/tests-26%20passing-brightgreen" />
+  <img src="https://img.shields.io/badge/license-MIT-blue" />
+</p>
 
-✨ Key Features
-👤 User Management
+---
 
-Citizen registration with Indian phone number validation
+## 🌟 Overview
 
-Email validation
+Urban complaint systems often fail due to:
 
-OTP verification-ready architecture
+- Poor input validation  
+- No structured routing  
+- Messy backend logic  
 
-User roles and verification status
+This project solves those problems using:
 
-📝 Complaint Handling
+- **Strict validation**
+- **Service-layer architecture**
+- **Test-driven development**
 
-Text-based complaint submission
+---
 
-Automatic form filling
+## ✨ Features
 
-Status & urgency tracking
+- Citizen registration with Indian phone validation  
+- Complaint submission & tracking  
+- Automatic issue categorization (ML-ready)  
+- Clean service-layer architecture  
+- Full CRUD APIs  
+- 26 automated tests  
 
-🤖 Smart Classification (Planned)
+---
 
-ML-based issue type classification
+## 🧱 Architecture Overview
 
-Automatic department routing
+```mermaid
+graph TD
+    A[Client / UI] --> B[FastAPI Router]
+    B --> C[Pydantic Validation]
+    C --> D[Service Layer]
+    D --> E[Database]
+🔄 Request Lifecycle
+mermaid
+Copy code
+sequenceDiagram
+    participant Client
+    participant API
+    participant Service
+    participant DB
 
-🧱 Backend Architecture
-
-Service-layer pattern (clean separation of concerns)
-
-Fully validated request/response schemas
-
-Graceful error handling with HTTP status codes
-
-🧪 Testing
-
-26 automated tests
-
-Covers happy paths, edge cases, and validation failures
-
-📊 Project Status
-Week	Progress
-Week 1	✅ Complete
-Week 2+	🚧 In Progress
-✅ Completed in Week 1
-
-Project structure & architecture
-
-Database schema & models
-
-Full CRUD APIs
-
-Input validation using Pydantic
-
-Centralized error handling
-
-Service layer separation
-
-26 passing test cases
-
-🛠️ Tech Stack
-Layer	Technology
-Framework	FastAPI
-ORM	SQLAlchemy
-Database	SQLite
-Validation	Pydantic
-Testing	Pytest
-Server	Uvicorn
+    Client->>API: HTTP Request
+    API->>API: Validate Input (Pydantic)
+    API->>Service: Call Business Logic
+    Service->>DB: Read / Write Data
+    DB-->>Service: Result
+    Service-->>API: Response
+    API-->>Client: JSON Response
 🚀 Quick Start
 Prerequisites
-
 Python 3.11+
 
 pip
 
-SQLite (bundled with Python)
-
-🔧 Installation
-# Clone repository
+Setup
+bash
+Copy code
 git clone https://github.com/anishxagrawal/complaint-portal.git
 cd complaint-portal/backend
 
-# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+source venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
-
-▶️ Run the Application
+Run Server
+bash
+Copy code
 uvicorn app.main:app --reload
+API: http://localhost:8000
 
-
-📍 API available at:
-
-http://localhost:8000
-
-Swagger UI: http://localhost:8000/docs
-
-ReDoc: http://localhost:8000/redoc
-
-🧪 Running Tests
-pytest
-pytest -v
-pytest tests/test_complaints.py -v
-pytest --cov=app
-
-
-✅ Expected Result: All 26 tests pass
+Docs: http://localhost:8000/docs
 
 📁 Project Structure
-complaint-portal/backend/
+text
+Copy code
+backend/
 ├── app/
 │   ├── main.py
 │   ├── database.py
-│   ├── config.py
 │   ├── deps.py
 │   ├── models/
 │   ├── schemas/
 │   ├── routers/
 │   └── services/
-│
 ├── tests/
-│   ├── conftest.py
-│   ├── test_users.py
-│   ├── test_departments.py
-│   ├── test_issue_types.py
-│   └── test_complaints.py
-│
 ├── app.db
-├── requirements.txt
-└── README.md
-
+└── requirements.txt
 📚 API Endpoints
-👤 Users
-
+<details> <summary><strong>👤 Users</strong></summary>
 POST /users/
 
 GET /users/
 
 GET /users/{user_id}
 
-🏢 Departments
-
+</details> <details> <summary><strong>🏢 Departments</strong></summary>
 POST /departments/
 
 GET /departments/
 
-GET /departments/{dept_id}
+GET /departments/{id}
 
-🧩 Issue Types
-
+</details> <details> <summary><strong>🧩 Issue Types</strong></summary>
 POST /issue-types/
 
 GET /issue-types/
 
-GET /issue-types/{issue_id}
+GET /issue-types/{id}
 
-📝 Complaints
-
+</details> <details> <summary><strong>📝 Complaints</strong></summary>
 POST /complaints/
 
 GET /complaints/
 
-GET /complaints/{complaint_id}
+GET /complaints/{id}
 
-💾 Database Schema Overview
-Users
+</details>
+💾 Database Schema
+<details> <summary><strong>👤 Users Table</strong></summary>
+Column	Type	Notes
+id	Integer	Primary Key
+phone_number	String	Unique, +91XXXXXXXXXX
+full_name	String	2–255 chars
+email	String	Unique
+residential_address	String	5–500 chars
+role	String	Default: USER
+is_verified	Boolean	Default: false
+created_at	Timestamp	Auto
+updated_at	Timestamp	Auto
 
-id (PK)
+</details> <details> <summary><strong>🏢 Departments Table</strong></summary>
+Column	Type	Notes
+id	Integer	Primary Key
+name	String	Unique
+is_active	Boolean	Default: true
+created_at	Timestamp	Auto
 
-phone_number (Unique, +91XXXXXXXXXX)
+</details> <details> <summary><strong>🧩 Issue Types Table</strong></summary>
+Column	Type	Notes
+id	Integer	Primary Key
+name	String	3–100 chars
+department_id	Integer	Foreign Key
+is_active	Boolean	Default: true
+created_at	Timestamp	Auto
 
-full_name
+</details> <details> <summary><strong>📝 Complaints Table</strong></summary>
+Column	Type	Notes
+id	Integer	Primary Key
+user_id	Integer	FK → Users
+issue_type_id	Integer	FK → Issue Types
+description	String	10–1000 chars
+address	String	5–500 chars
+status	String	OPEN
+urgency	String	MEDIUM
+created_at	Timestamp	Auto
+updated_at	Timestamp	Auto
 
-email (Unique)
+</details>
+🧪 Testing
+bash
+Copy code
+pytest
+pytest -v
+pytest --cov=app
+✅ 26 tests passing
 
-residential_address
+🚀 Roadmap
+OTP authentication + JWT
 
-role
+Officer workflows
 
-is_verified
-
-created_at, updated_at
-
-Departments
-
-id (PK)
-
-name (Unique)
-
-is_active
-
-created_at
-
-Issue Types
-
-id (PK)
-
-name
-
-department_id (FK)
-
-is_active
-
-created_at
-
-Complaints
-
-id (PK)
-
-user_id (FK)
-
-issue_type_id (FK)
-
-description
-
-address
-
-status
-
-urgency
-
-created_at, updated_at
-
-🔄 Request Flow
-Client Request
-      ↓
-Pydantic Validation
-      ↓
-FastAPI Router
-      ↓
-Service Layer
-      ↓
-Database
-      ↓
-Response
-
-⚙️ Configuration
-
-Example .env file:
-
-DATABASE_URL=sqlite:///./app.db
-DEBUG=true
-ENVIRONMENT=development
-SECRET_KEY=dev-secret-key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
-
-📝 Example API Usage
-Create User
-curl -X POST "http://localhost:8000/users/" \
--H "Content-Type: application/json" \
--d '{
-  "full_name": "John Doe",
-  "phone_number": "+919876543210",
-  "email": "john@example.com",
-  "residential_address": "123 Main Street"
-}'
-
-📈 Test Results
-26 passed in 2.41s ✅
-
-
-Users: 3 tests
-
-Departments: 7 tests
-
-Issue Types: 7 tests
-
-Complaints: 9 tests
-
-🚀 Roadmap (Week 2+)
-
-OTP-based authentication + JWT
-
-Officer workflow & complaint assignment
-
-ML-based complaint categorization
+ML-based categorization
 
 Duplicate complaint detection
 
-Analytics dashboard
+Admin dashboard
 
-WebSocket real-time updates
-
-Rate limiting & security hardening
+WebSockets for live updates
 
 👤 Author
-
 Anish Agrawal
 Computer Science Student | Backend & AI Enthusiast
 
 📄 License
-
 MIT License
