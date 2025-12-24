@@ -1,11 +1,22 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.database import engine, Base
+
 from app.routers import auth, complaints, users, departments, issue_types
+
+# 🔑 IMPORT ALL MODELS (VERY IMPORTANT)
+from app.models.users import User
+from app.models.complaints import Complaint
+from app.models.departments import Department
+from app.models.issue_types import IssueType
+
 
 app = FastAPI(
     title="Smart City Complaint Portal",
     description="Citizen complaint management system"
 )
+
+
 
 # Add CORS middleware (allow frontend to call API)
 app.add_middleware(

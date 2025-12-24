@@ -68,7 +68,6 @@ def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
             detail=str(e)
         )
 
-
 @router.post("/verify-otp/", response_model=VerifyOTPResponse)
 def verify_otp(
     request: VerifyOTPRequest,
