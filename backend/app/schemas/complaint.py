@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
 from typing import Optional
+from typing import List
 
 
 class ComplaintCreate(BaseModel):
@@ -53,4 +54,22 @@ class ComplaintResponse(BaseModel):
     created_at: datetime
     
     class Config:
-        from_attributes = True  # For SQLAlchemy compatibility
+        from_attributes = True  # Tells Pydantic: "Convert SQLAlchemy model → JSON"
+
+# ============================================
+# NEW SCHEMAS (Add these for pagination)
+# ============================================
+
+class PaginationMetadata(BaseModel):
+
+    page: int=Field(..., description="Current page number (1-indexed)")
+    page_size: int=Field(..., description="Current page number (1-indexed)")
+    total: int=Field(..., description="Total number of items across all pages")
+    pages: int=Field(..., description="Total number of pages")
+    has_next: int=Field(..., description="Whether there's a next page")
+    has_prev: int=Field(..., description="Whether there's a previous page")
+
+class PaginatedComplaintResponse(BaseModel):
+
+    data: List[ComplaintResponse] = Field(..., description = "List of complaints for this page")
+    pagination:  PaginationMetadata = Field(..., description = "Pagination Metadata")
