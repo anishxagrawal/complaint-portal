@@ -25,6 +25,36 @@ def post_complaints(
     # ✅ Pass both arguments + current_user.id
     return ComplaintService.create(complaint_data, db, current_user.id)
 
+@router.get("/search", response_model=PaginatedComplaintResponse)
+def search_complaint(
+    q: str,
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    complaints, total_count = ComplaintService.search(
+        db=db,
+        user_id=current_user.id,
+        query=q,
+        page=page,
+        page_size=page_size
+    )
+
+    total_pages = ceil(total_count / page_size) if total_count > 0 else 1
+
+    return PaginatedComplaintResponse(
+        data=complaints,
+        pagination=PaginationMetadata(
+            page=page,
+            page_size=page_size,
+            total=total_count,
+            pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1
+        )
+    )
+
 @router.get("/{complaint_id}", response_model=ComplaintResponse)
 def get_complaint(
     complaint_id: int, 

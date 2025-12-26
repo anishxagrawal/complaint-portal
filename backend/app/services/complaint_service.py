@@ -6,6 +6,8 @@ from typing import List, Tuple
 from sqlalchemy import desc, asc
 from datetime import datetime
 
+from fuzzywuzzy import fuzz
+
 from app.models.complaints import Complaint
 from app.models.users import User  # ✅ ADD
 from app.models.issue_types import IssueType  # ✅ ADD
@@ -219,3 +221,85 @@ class ComplaintService:
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail="Failed to delete complaint")
+
+    @staticmethod
+    def search(
+        db: Session,
+        user_id: int,
+        query: str,
+        page: int = 1,
+        page_size: int = 20
+    ) -> Tuple[List[Complaint], int]:
+        """
+        Search complaints using fuzzy matching on description and address.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user whose complaints to search
+            query: Search query string
+            page: Page number (1-indexed)
+            page_size: Number of results per page
+            
+        Returns:
+            Tuple of (complaints list, total count)
+        """
+
+        # Input validation
+        if not query or not query.strip():
+            return [], 0
+        
+        query = query.strip().lower()
+
+        # Get all user's complaints from database
+        all_complaints = db.query(Complaint).filter(
+            Complaint.user_id == user_id
+        ).all()
+
+        # Calculate fuzzy match score for each complaint
+        matches = []
+        for complaint in all_complaints:
+            # Calculate scores for description and address
+            description_score = 0
+            address_score = 0
+
+            if complaint.description:
+                description_score = fuzz.token_set_ratio(
+                    query,
+                    complaint.description.lower()
+                )
+
+            if complaint.address:
+                address_score = fuzz.token_set_ratio(
+                    query,
+                    complaint.address.lower()
+                )
+
+            # Take the maximum score from both fields
+            max_score = max(description_score, address_score)
+
+            # Only include if score is above threshold (70%)
+            if max_score > 70:
+                matches.append({
+                    'complaint': complaint,
+                    'score': max_score
+                })
+
+        # Sort by relevance (highest score first)
+        matches.sort(key=lambda x: x['score'], reverse=True)
+
+        # Extract just the complaints
+        matched_complaints = [m['complaint'] for m in matches]
+
+        # Get total count before pagination
+        total_count = len(matched_complaints)
+
+        # Apply pagination
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_complaints = matched_complaints[start_idx:end_idx]
+
+        return paginated_complaints, total_count
+
+# Initialize service instance
+complaint_service = ComplaintService()
+    

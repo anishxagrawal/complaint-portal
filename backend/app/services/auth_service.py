@@ -44,6 +44,12 @@ class AuthService:
         
         # Generate new OTP secret
         otp_secret = generate_otp_secret()
+
+        # ✅ Generate OTP code from secret
+        otp_code = get_otp_code(otp_secret)
+
+        # ✅ Print OTP in terminal (DEV ONLY)
+        print(f"DEBUG OTP for {phone_number}: {otp_code}")
         
         # Set expiration: 5 minutes from now
         otp_expires_at = datetime.utcnow() + timedelta(
