@@ -10,13 +10,10 @@ from app.models.complaints import Complaint
 from app.models.departments import Department
 from app.models.issue_types import IssueType
 
-
 app = FastAPI(
     title="Smart City Complaint Portal",
     description="Citizen complaint management system"
 )
-
-
 
 # Add CORS middleware (allow frontend to call API)
 app.add_middleware(
@@ -33,6 +30,8 @@ app.include_router(users.router)
 app.include_router(complaints.router)
 app.include_router(departments.router)
 app.include_router(issue_types.router)
+
+Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def read_root():
