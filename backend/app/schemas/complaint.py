@@ -73,3 +73,45 @@ class PaginatedComplaintResponse(BaseModel):
 
     data: List[ComplaintResponse] = Field(..., description = "List of complaints for this page")
     pagination:  PaginationMetadata = Field(..., description = "Pagination Metadata")
+
+# =====================================================
+# COMPLAINT ASSIGNMENT SCHEMA (Admin/Manager operation)
+# =====================================================
+class ComplaintAssign(BaseModel):
+    """
+    Schema for assigning a complaint to a department.
+    
+    Used by ADMIN and DEPARTMENT_MANAGER to route complaints.
+    - ADMIN can assign to any department
+    - DEPT_MGR can only assign to their own department
+    """
+    department: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        description="Department to assign the complaint to",
+        examples=["Public Works", "Sanitation", "Water Supply"]
+    )
+    
+    @validator('department')
+    def validate_department(cls, v):
+        """Clean and validate department name"""
+        # Remove extra spaces
+        v = v.strip()
+        
+        # Check not empty after stripping
+        if not v:
+            raise ValueError("Department cannot be empty or just spaces")
+        
+        # Ensure at least some alphabetic characters
+        if not any(char.isalpha() for char in v):
+            raise ValueError("Department must contain letters")
+        
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "department": "Public Works"
+            }
+        }

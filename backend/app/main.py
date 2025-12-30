@@ -3,14 +3,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from fastapi.openapi.utils import get_openapi
+from dotenv import load_dotenv
 
-from app.routers import auth, complaints, users, departments, issue_types
+from app.routers import auth, complaints, users, departments, issue_types, chat
 
 # Import all models
 from app.models.users import User
 from app.models.complaints import Complaint
 from app.models.departments import Department
 from app.models.issue_types import IssueType
+from app.models.chats import ChatConversation
+
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(
     title="Smart City Complaint Portal",
@@ -32,6 +38,7 @@ app.include_router(users.router)
 app.include_router(complaints.router)
 app.include_router(departments.router)
 app.include_router(issue_types.router)
+app.include_router(chat.router)  # ✅ ADDED THIS LINE
 
 Base.metadata.create_all(bind=engine)
 

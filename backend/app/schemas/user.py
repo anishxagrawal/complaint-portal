@@ -123,3 +123,51 @@ class UserLoginResponse(BaseModel):
 class UserListResponse(BaseModel):
     count: int
     data: List[UserResponse]
+
+# =====================================================
+# USER ROLE UPDATE SCHEMA (Admin only operation)
+# =====================================================
+class UserRoleUpdate(BaseModel):
+    """
+    Schema for updating a user's role.
+    
+    Used by ADMIN to promote/change user roles.
+    If setting role to DEPARTMENT_MANAGER, department is required.
+    """
+    role: UserRole = Field(
+        ...,
+        description="New role for the user"
+    )
+    
+    department: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Required if new role is department_manager"
+    )
+    
+    @validator("department", always=True)
+    def validate_department_for_role(cls, v, values):
+        """Ensure department is provided when role is DEPARTMENT_MANAGER"""
+        role = values.get("role")
+        
+        # Department managers MUST have a department
+        if role == UserRole.DEPARTMENT_MANAGER and not v:
+            raise ValueError(
+                "Department is required when role is 'department_manager'"
+            )
+        
+        # Clean up department string if provided
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Department cannot be empty string")
+        
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "role": "department_manager",
+                "department": "Public Works"
+            }
+        }

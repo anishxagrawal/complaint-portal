@@ -5,6 +5,7 @@ from typing import List, Tuple, Optional
 from sqlalchemy import desc, asc, or_
 from datetime import datetime
 from fuzzywuzzy import fuzz
+from app.utils.audit_logger import audit_logger
 
 from app.models.complaints import Complaint
 from app.models.users import User
@@ -42,6 +43,13 @@ class ComplaintService:
             db.add(new_complaint)
             db.commit()
             db.refresh(new_complaint)
+
+            audit_logger.log_action(
+                user_id=user_id,
+                action="CREATE",
+                resource_type="COMPLAINT",
+                resource_id=new_complaint.id
+            )
             
             return new_complaint
         
@@ -191,6 +199,14 @@ class ComplaintService:
 
             db.commit()
             db.refresh(complaint)
+
+            audit_logger.log_action(
+                user_id=user.id,
+                action="UPDATE",
+                resource_type="COMPLAINT",
+                resource_id=complaint_id
+            )
+
             return complaint
 
         except Exception as e:
@@ -210,6 +226,14 @@ class ComplaintService:
         try:
             db.delete(complaint)
             db.commit()
+            
+            audit_logger.log_action(
+                user_id=user.id,
+                action="DELETE",
+                resource_type="COMPLAINT",
+                resource_id=complaint_id
+            )
+
             return {"message": "Complaint deleted successfully"}
         
         except Exception as e:
@@ -276,6 +300,65 @@ class ComplaintService:
         paginated_complaints = matched_complaints[start_idx:end_idx]
 
         return paginated_complaints, total_count
+
+    # ADD THIS METHOD TO YOUR EXISTING ComplaintService class
+
+    @staticmethod
+    def assign_complaint(
+        complaint_id: int,
+        department: str,
+        db: Session,
+        user: User
+    ) -> Complaint:
+        """
+        Assign complaint to a department (ADMIN + DEPT_MGR)
+        
+        Role Logic:
+        - ADMIN: Can assign to any department
+        - DEPARTMENT_MANAGER: Can only assign to their own department
+        - USER: Cannot assign (403 error)
+        """
+        from app.utils.audit_logger import audit_logger
+        
+        # ✅ ROLE CHECK: Only ADMIN and DEPT_MGR can assign
+        if user.role not in [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER]:
+            raise HTTPException(
+                status_code=403,
+                detail="Only admins and department managers can assign complaints"
+            )
+        
+        complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not complaint:
+            raise HTTPException(status_code=404, detail="Complaint not found")
+        
+        # ✅ DEPT_MGR can only assign to THEIR department
+        if user.role == UserRole.DEPARTMENT_MANAGER:
+            if department != user.department:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Department managers can only assign to their own department"
+                )
+        
+        try:
+            old_department = complaint.department
+            complaint.department = department
+            db.commit()
+            db.refresh(complaint)
+            
+            # ✅ AUDIT LOG
+            audit_logger.log_action(
+                user_id=user.id,
+                action="ASSIGN",
+                resource_type="COMPLAINT",
+                resource_id=complaint_id,
+                details=f"Assigned from {old_department} to {department}"
+            )
+            
+            return complaint
+
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to assign complaint")
 
 
 # Initialize service instance

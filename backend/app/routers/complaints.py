@@ -8,14 +8,15 @@ from app.schemas.complaint import (
     ComplaintCreate, 
     ComplaintResponse,
     PaginatedComplaintResponse,
-    PaginationMetadata
+    PaginationMetadata,
+    ComplaintAssign
 )
 from app.services.complaint_service import ComplaintService
 from app.deps import get_db, get_current_user
 from app.models.users import User
 from app.models.complaints import Complaint
 from app.middleware.permissions import require_permission, require_complaint_access
-from app.enums import Permission
+from app.enums import Permission 
 
 router = APIRouter(prefix="/complaints", tags=["Complaint"])
 
@@ -171,3 +172,31 @@ def delete_complaint(
 ):
     """Delete a complaint. Admin only."""
     return ComplaintService.delete(complaint_id, db, current_user)
+
+# ============================================
+# ASSIGN COMPLAINT (Admin + Dept Manager)
+# ============================================
+@router.patch("/{complaint_id}/assign", response_model=ComplaintResponse)
+def assign_complaint(
+    complaint_id: int,
+    assign_data: ComplaintAssign,  # Schema: {department: str}
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Assign complaint to a department.
+    
+    Access control:
+    - ADMIN: Can assign to any department
+    - DEPT_MGR: Can only assign to their own department
+    - USER: Cannot assign (403 error)
+    
+    Role check is done inside ComplaintService.assign_complaint()
+    """
+    # ✅ Service handles role checking internally
+    return ComplaintService.assign_complaint(
+        complaint_id=complaint_id,
+        department=assign_data.department,
+        db=db,
+        user=current_user
+    )
