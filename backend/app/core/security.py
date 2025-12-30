@@ -1,5 +1,8 @@
+# app/core/security.py
+
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+import pyotp
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -11,10 +14,18 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ============================================
 
 def hash_password(password: str) -> str:
+    """Hash a password using bcrypt."""
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against a hash."""
     return pwd_context.verify(plain_password, hashed_password)
+
+
+# ============================================
+# JWT TOKEN FUNCTIONS
+# ============================================
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
@@ -54,6 +65,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 
     return encoded_jwt
 
+
 def verify_token(token: str) -> Dict[str, Any]:
     """
     Verify and decode a JWT token.
@@ -71,7 +83,6 @@ def verify_token(token: str) -> Dict[str, Any]:
         payload = verify_token("eyJhbGciOiJIUzI1NiIs...")
         user_id = payload.get("user_id")
     """
-
     try:
         # Decode and verify token
         payload = jwt.decode(
@@ -93,11 +104,12 @@ def verify_token(token: str) -> Dict[str, Any]:
         # Token is invalid, expired, or tampered
         raise JWTError(f"Invalid token: {str(e)}")
 
+
 # ============================================
 # OTP HELPER FUNCTIONS
 # ============================================
 
-def generate_otp_secret() ->str:
+def generate_otp_secret() -> str:
     """
     Generate a random OTP secret.
     
@@ -108,11 +120,10 @@ def generate_otp_secret() ->str:
         secret = generate_otp_secret()
         # Returns: "JBSWY3DPEHPK3PXP"
     """
-
-    import pyotp
     return pyotp.random_base32()
 
-def verity_otp(secret: str, otp_code: str) -> bool:
+
+def verify_otp(secret: str, otp_code: str) -> bool:
     """
     Verify if OTP code matches the secret.
     
@@ -126,10 +137,10 @@ def verity_otp(secret: str, otp_code: str) -> bool:
     Example:
         is_valid = verify_otp("JBSWY3DPEHPK3PXP", "123456")
     """
-    import pyotp
     totp = pyotp.TOTP(secret)
     # Verify with time window: current and previous 30-second window
     return totp.verify(otp_code, valid_window=1)
+
 
 def get_otp_code(secret: str) -> str:
     """
@@ -145,24 +156,5 @@ def get_otp_code(secret: str) -> str:
         Only use this in testing or admin functions.
         Normal users shouldn't have access to this.
     """
-    import pyotp
-    totp = pyotp.TOTP(secret)
-    return totp.now()
-
-import pyotp
-
-def generate_otp_secret() -> str:
-    """Generate a random OTP secret."""
-    return pyotp.random_base32()
-
-
-def verify_otp(secret: str, otp_code: str) -> bool:
-    """Verify if OTP code matches the secret."""
-    totp = pyotp.TOTP(secret)
-    return totp.verify(otp_code, valid_window=1)
-
-
-def get_otp_code(secret: str) -> str:
-    """Get current OTP code from secret (for testing only)."""
     totp = pyotp.TOTP(secret)
     return totp.now()

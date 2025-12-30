@@ -1,17 +1,28 @@
+# backend/requirements.txt
+
+# FastAPI & Server
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
+# Database
 sqlalchemy==2.0.23
 
+# Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.1
-
 pyotp==2.9.0
-python-dotenv==1.0.0
 
+# Configuration
+python-dotenv==1.0.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
+
+# Rate Limiting ✅ NEW
+slowapi==0.1.9
+
+# AI & ML
+google-generativeai  # ✅ NEW (for Gemini)
 
 # Fuzzy matching (faster & maintained)
 rapidfuzz==3.6.1
