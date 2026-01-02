@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.models import User
 from app.core.config import settings
 from app.core.security import (
-    create_access_token,
     verify_otp,
     generate_otp_secret,
     get_otp_code
@@ -30,13 +29,13 @@ class AccountLockedError(Exception):
 class AuthService:
     """Service for authentication: OTP, tokens, etc."""
     
-    def send_otp(self, db: Session, phone_number: str) -> dict:
-        """Send OTP to user's phone."""
-        # Find user by phone
-        user = db.query(User).filter(User.phone_number == phone_number).first()
+    def send_otp(self, db: Session, email: str) -> dict:
+        """Send OTP to user's email for verification."""
+        # Find user by email
+        user = db.query(User).filter(User.email == email).first()
         
         if not user:
-            raise ValueError(f"User with phone {phone_number} not found")
+            raise ValueError(f"User with email {email} not found")
         
         # Check if account is locked (too many failed attempts)
         if user.otp_locked_until and datetime.utcnow() < user.otp_locked_until:
@@ -51,7 +50,7 @@ class AuthService:
         otp_code = get_otp_code(otp_secret)
 
         # ✅ Print OTP in terminal (DEV ONLY)
-        print(f"DEBUG OTP for {phone_number}: {otp_code}")
+        print(f"DEBUG OTP for {email}: {otp_code}")
         
         # Set expiration: 5 minutes from now
         otp_expires_at = datetime.utcnow() + timedelta(
@@ -67,18 +66,18 @@ class AuthService:
         db.commit()
         
         return {
-            "message": f"OTP sent to {phone_number}",
-            "phone_number": phone_number
+            "message": f"OTP sent to {email}",
+            "email": email
         }
     
     
-    def verify_otp(self, db: Session, phone_number: str, otp_code: str) -> dict:
-        """Verify OTP and return JWT token."""
-        # Find user by phone
-        user = db.query(User).filter(User.phone_number == phone_number).first()
+    def verify_otp(self, db: Session, email: str, otp_code: str) -> dict:
+        """Verify OTP for email verification."""
+        # Find user by email
+        user = db.query(User).filter(User.email == email).first()
         
         if not user:
-            raise ValueError(f"User with phone {phone_number} not found")
+            raise ValueError(f"User with email {email} not found")
         
         # Check if account is locked
         if user.otp_locked_until and datetime.utcnow() < user.otp_locked_until:
@@ -120,14 +119,9 @@ class AuthService:
         user.is_verified = True  # Mark as verified
         db.commit()
         
-        # Create JWT token
-        access_token = create_access_token(
-            data={"user_id": user.id}
-        )
-        
         return {
-            "access_token": access_token,
-            "token_type": "Bearer"
+            "message": "Email verified successfully",
+            "email": email
         }
 
 
