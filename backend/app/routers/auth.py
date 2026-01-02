@@ -7,6 +7,7 @@ from slowapi.util import get_remote_address
 
 from app.database import get_db
 from app.schemas.auth import (
+    SignupRequest,
     SendOTPRequest,
     VerifyOTPRequest,
     MessageResponse
@@ -17,6 +18,8 @@ from app.services.auth_service import (
     InvalidOTPError,
     AccountLockedError
 )
+from app.models import User
+from app.core.security import hash_password
 from app.core.logging import get_logger
 
 # ==========================================
@@ -26,6 +29,95 @@ from app.core.logging import get_logger
 router = APIRouter(prefix="/auth", tags=["authentication"])
 logger = get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address)
+
+# ==========================================
+# SIGNUP
+# ==========================================
+
+@router.post("/signup/", response_model=MessageResponse)
+async def signup(
+    signup_request: SignupRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Register a new user account.
+    
+    Steps:
+    1. User sends email, password, and name
+    2. System checks if email already exists
+    3. Password is hashed and stored
+    4. User created with is_verified = False
+    5. User must verify email using /send-otp and /verify-otp
+    
+    Args:
+        signup_request: Contains email, password, and name
+        db: Database session
+        
+    Returns:
+        MessageResponse with message and email
+        
+    Errors:
+        409: Email already registered
+        500: Server error
+        
+    Example:
+        POST /auth/signup/
+        {
+            "email": "user@example.com",
+            "password": "securepassword123",
+            "name": "John Doe"
+        }
+        
+        Response:
+        {
+            "message": "Account created. Please verify your email.",
+            "email": "user@example.com"
+        }
+    """
+    try:
+        logger.info(f"Signup attempt for email: {signup_request.email}")
+        
+        # Check if user already exists
+        existing_user = db.query(User).filter(User.email == signup_request.email).first()
+        if existing_user:
+            logger.warning(f"Email already registered: {signup_request.email}")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already registered"
+            )
+        
+        # Hash password
+        hashed_password = hash_password(signup_request.password)
+        
+        # Create new user
+        new_user = User(
+            email=signup_request.email,
+            hashed_password=hashed_password,
+            full_name=signup_request.name,
+            is_verified=False
+        )
+        
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        logger.info(f"✅ User created successfully: {signup_request.email}")
+        
+        return {
+            "message": "Account created. Please verify your email.",
+            "email": signup_request.email
+        }
+        
+    except HTTPException:
+        raise
+        
+    except Exception as e:
+        logger.error(f"❌ Signup failed: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create account"
+        )
 
 # ==========================================
 # SEND OTP (Rate Limited: 5 per minute)
