@@ -40,6 +40,44 @@ def require_permission(permission: Permission) -> Callable:
     
     return permission_checker
 
+def require_any_permission(*permissions: Permission) -> Callable:
+    """
+    Dependency factory that checks if current user has ANY of the required permissions.
+    
+    Usage:
+        @router.get("/complaints/")
+        def list_complaints(
+            user: User = Depends(require_any_permission(
+                Permission.VIEW_ALL_COMPLAINTS,
+                Permission.VIEW_OWN_COMPLAINTS,
+                Permission.VIEW_DEPARTMENT_COMPLAINTS
+            ))
+        ):
+            # User has at least one of the permissions
+            ...
+    
+    Args:
+        *permissions: One or more required permissions
+        
+    Returns:
+        Dependency function that validates permissions
+        
+    Raises:
+        403: If user lacks all permissions
+    """
+    def permission_checker(current_user: User = Depends(get_current_user)) -> User:
+        for permission in permissions:
+            if has_permission(current_user.role, permission):
+                return current_user
+        
+        permission_names = ", ".join(p.value for p in permissions)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied: requires one of [{permission_names}]"
+        )
+    
+    return permission_checker
+
 # app/middleware/permissions.py (continued)
 
 def require_complaint_access(
@@ -84,12 +122,12 @@ def require_complaint_access(
             detail=f"Complaint {complaint_id} not found"
         )
     
-    # ADMIN can access anything
-    if current_user.role == UserRole.ADMIN:
+    # Check if user can view all complaints
+    if has_permission(current_user.role, Permission.VIEW_ALL_COMPLAINTS):
         return complaint
     
-    # USER can only access their own
-    if current_user.role == UserRole.USER:
+    # Check if user can view own complaints
+    if has_permission(current_user.role, Permission.VIEW_OWN_COMPLAINTS):
         if complaint.submitted_by != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -97,8 +135,8 @@ def require_complaint_access(
             )
         return complaint
     
-    # DEPARTMENT_MANAGER can access their department's complaints
-    if current_user.role == UserRole.DEPARTMENT_MANAGER:
+    # Check if user can view department complaints
+    if has_permission(current_user.role, Permission.VIEW_DEPARTMENT_COMPLAINTS):
         if complaint.department != current_user.department:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -106,7 +144,7 @@ def require_complaint_access(
             )
         return complaint
     
-    # Fallback (shouldn't reach here)
+    # No permission matched
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Access denied"

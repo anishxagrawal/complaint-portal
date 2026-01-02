@@ -15,7 +15,7 @@ from app.services.complaint_service import ComplaintService
 from app.deps import get_db, get_current_user
 from app.models.users import User
 from app.models.complaints import Complaint
-from app.middleware.permissions import require_permission, require_complaint_access
+from app.middleware.permissions import require_permission, require_complaint_access, require_any_permission
 from app.enums import Permission 
 
 router = APIRouter(prefix="/complaints", tags=["Complaint"])
@@ -42,7 +42,11 @@ def search_complaint(
     q: str,
     page: int = 1,
     page_size: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_any_permission(
+        Permission.VIEW_ALL_COMPLAINTS,
+        Permission.VIEW_OWN_COMPLAINTS,
+        Permission.VIEW_DEPARTMENT_COMPLAINTS
+    )),
     db: Session = Depends(get_db)
 ):
     """
@@ -104,7 +108,11 @@ def list_complaints(
     sort: str = "-created_at",
     page: int = 1,
     page_size: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_any_permission(
+        Permission.VIEW_ALL_COMPLAINTS,
+        Permission.VIEW_OWN_COMPLAINTS,
+        Permission.VIEW_DEPARTMENT_COMPLAINTS
+    )),
     db: Session = Depends(get_db)
 ):
     """
