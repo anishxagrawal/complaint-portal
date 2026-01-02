@@ -53,7 +53,7 @@ def search_complaint(
     """
     complaints, total_count = ComplaintService.search(
         db=db,
-        user=current_user,  # ✅ Pass entire user object
+        user=current_user,
         query=q,
         page=page,
         page_size=page_size
@@ -115,7 +115,7 @@ def list_complaints(
     """
     complaints, total_count = ComplaintService.list_all(
         db=db,
-        user=current_user,  # ✅ Pass entire user object
+        user=current_user,
         status=status,
         urgency=urgency,
         from_date=from_date,
@@ -173,14 +173,16 @@ def delete_complaint(
     """Delete a complaint. Admin only."""
     return ComplaintService.delete(complaint_id, db, current_user)
 
+
 # ============================================
 # ASSIGN COMPLAINT (Admin + Dept Manager)
 # ============================================
 @router.patch("/{complaint_id}/assign", response_model=ComplaintResponse)
 def assign_complaint(
     complaint_id: int,
-    assign_data: ComplaintAssign,  # Schema: {department: str}
-    current_user: User = Depends(get_current_user),
+    assign_data: ComplaintAssign,
+    # ✅ CHANGED: enforce permission at router level
+    current_user: User = Depends(require_permission(Permission.ASSIGN_COMPLAINT)),
     db: Session = Depends(get_db)
 ):
     """
@@ -191,9 +193,8 @@ def assign_complaint(
     - DEPT_MGR: Can only assign to their own department
     - USER: Cannot assign (403 error)
     
-    Role check is done inside ComplaintService.assign_complaint()
+    Permission is enforced at router level.
     """
-    # ✅ Service handles role checking internally
     return ComplaintService.assign_complaint(
         complaint_id=complaint_id,
         department=assign_data.department,

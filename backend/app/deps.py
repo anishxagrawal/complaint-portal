@@ -1,3 +1,5 @@
+# app/deps.py
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -7,8 +9,12 @@ from app.database import get_db
 from app.core.security import verify_token
 from app.models.users import User
 
+# ============================================
 # Swagger-native OAuth2 Bearer
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp/")
+# ============================================
+
+# ✅ FIX 1: tokenUrl must point to login, not OTP
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/")
 
 # ============================================
 # AUTHENTICATION DEPENDENCY
@@ -20,7 +26,6 @@ def get_current_user(
     """
     Extract and verify current user from JWT token.
     """
-
     try:
         payload = verify_token(token)
         user_id: int = payload.get("user_id")
@@ -31,7 +36,8 @@ def get_current_user(
                 detail="Invalid token payload"
             )
 
-    except JWTError:
+    # ✅ FIX 2: catch broader token-related failures safely
+    except (JWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
