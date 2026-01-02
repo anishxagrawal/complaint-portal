@@ -10,7 +10,9 @@ from app.schemas.auth import (
     SignupRequest,
     SendOTPRequest,
     VerifyOTPRequest,
-    MessageResponse
+    LoginRequest,
+    MessageResponse,
+    Token
 )
 from app.services.auth_service import (
     auth_service,
@@ -19,7 +21,7 @@ from app.services.auth_service import (
     AccountLockedError
 )
 from app.models import User
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password, create_access_token
 from app.core.logging import get_logger
 
 # ==========================================
@@ -284,4 +286,99 @@ async def verify_otp(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify OTP"
+        )
+
+# ==========================================
+# LOGIN
+# ==========================================
+
+@router.post("/login/", response_model=Token)
+async def login(
+    login_request: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Login with email and password.
+    
+    Steps:
+    1. User sends email and password
+    2. System looks up user by email
+    3. System verifies email is verified
+    4. System verifies password
+    5. System generates JWT token
+    
+    Args:
+        login_request: Contains email and password
+        db: Database session
+        
+    Returns:
+        Token with access_token and token_type
+        
+    Errors:
+        401: Invalid credentials
+        403: Email not verified
+        500: Server error
+        
+    Example:
+        POST /auth/login/
+        {
+            "email": "user@example.com",
+            "password": "securepassword123"
+        }
+        
+        Response:
+        {
+            "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "token_type": "bearer"
+        }
+    """
+    try:
+        logger.info(f"Login attempt for email: {login_request.email}")
+        
+        # Find user by email
+        user = db.query(User).filter(User.email == login_request.email).first()
+        
+        if not user:
+            logger.warning(f"User not found: {login_request.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        # Check if email is verified
+        if not user.is_verified:
+            logger.warning(f"Email not verified: {login_request.email}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not verified. Please verify your email first."
+            )
+        
+        # Verify password
+        if not verify_password(login_request.password, user.hashed_password):
+            logger.warning(f"Invalid password for: {login_request.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        # Create JWT token
+        access_token = create_access_token(
+            data={"user_id": user.id}
+        )
+        
+        logger.info(f"✅ Login successful for {login_request.email}")
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+        
+    except HTTPException:
+        raise
+        
+    except Exception as e:
+        logger.error(f"❌ Login failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
         )
