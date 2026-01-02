@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.schemas.auth import (
@@ -289,16 +290,20 @@ async def verify_otp(
         )
 
 # ==========================================
-# LOGIN
+# LOGIN (Rate Limited: 5 per minute)
 # ==========================================
 
 @router.post("/login/", response_model=Token)
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     login_request: LoginRequest,
     db: Session = Depends(get_db)
 ):
     """
     Login with email and password.
+    
+    **Rate Limit:** 5 requests per minute per IP
     
     Steps:
     1. User sends email and password
@@ -308,6 +313,7 @@ async def login(
     5. System generates JWT token
     
     Args:
+        request: FastAPI request (for rate limiting)
         login_request: Contains email and password
         db: Database session
         
@@ -317,6 +323,7 @@ async def login(
     Errors:
         401: Invalid credentials
         403: Email not verified
+        429: Account locked or rate limit exceeded
         500: Server error
         
     Example:
@@ -345,6 +352,14 @@ async def login(
                 detail="Invalid email or password"
             )
         
+        # Check if account is locked
+        if user.login_locked_until and datetime.utcnow() < user.login_locked_until:
+            logger.warning(f"Account locked: {login_request.email}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Account temporarily locked due to too many failed attempts"
+            )
+        
         # Check if email is verified
         if not user.is_verified:
             logger.warning(f"Email not verified: {login_request.email}")
@@ -356,10 +371,29 @@ async def login(
         # Verify password
         if not verify_password(login_request.password, user.hashed_password):
             logger.warning(f"Invalid password for: {login_request.email}")
+            
+            # Increment failed attempts
+            user.failed_login_attempts += 1
+            
+            # Lock account after 5 failed attempts
+            if user.failed_login_attempts >= 5:
+                user.login_locked_until = datetime.utcnow() + timedelta(minutes=15)
+                db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Account temporarily locked due to too many failed attempts"
+                )
+            
+            db.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
+        
+        # Reset failed attempts on successful login
+        user.failed_login_attempts = 0
+        user.login_locked_until = None
+        db.commit()
         
         # Create JWT token
         access_token = create_access_token(

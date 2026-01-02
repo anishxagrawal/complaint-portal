@@ -22,6 +22,10 @@ class User(Base):
     # True only after successful email OTP verification
     is_verified = Column(Boolean, default=False, nullable=False)
 
+    # Login abuse protection
+    failed_login_attempts = Column(Integer, default=0)            # Track failed password login attempts
+    login_locked_until = Column(DateTime, nullable=True)          # Temporarily lock account after repeated failures
+
     # 🧑 ROLE & DEPARTMENT
     role = Column(
         Enum(UserRole),
