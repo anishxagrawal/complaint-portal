@@ -8,6 +8,9 @@ from app.models.users import User
 from app.models.complaints import Complaint
 from app.enums import Permission, has_permission, UserRole
 from app.database import get_db
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 def require_permission(permission: Permission) -> Callable:
     """
@@ -32,6 +35,9 @@ def require_permission(permission: Permission) -> Callable:
     """
     def permission_checker(current_user: User = Depends(get_current_user)) -> User:
         if not has_permission(current_user.role, permission):
+            logger.warning(
+                f"authz.permission.denied | user_id={current_user.id} | role={current_user.role.value} | permission={permission.value}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: {permission.value} required"
@@ -71,6 +77,9 @@ def require_any_permission(*permissions: Permission) -> Callable:
                 return current_user
         
         permission_names = ", ".join(p.value for p in permissions)
+        logger.warning(
+            f"authz.permission.denied | user_id={current_user.id} | role={current_user.role.value} | permissions=[{permission_names}]"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Permission denied: requires one of [{permission_names}]"
@@ -129,6 +138,9 @@ def require_complaint_access(
     # Check if user can view own complaints
     if has_permission(current_user.role, Permission.VIEW_OWN_COMPLAINTS):
         if complaint.submitted_by != current_user.id:
+            logger.warning(
+                f"authz.complaint.access.denied | user_id={current_user.id} | role={current_user.role.value} | complaint_id={complaint_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only access your own complaints"
@@ -138,6 +150,9 @@ def require_complaint_access(
     # Check if user can view department complaints
     if has_permission(current_user.role, Permission.VIEW_DEPARTMENT_COMPLAINTS):
         if complaint.department != current_user.department:
+            logger.warning(
+                f"authz.complaint.access.denied | user_id={current_user.id} | role={current_user.role.value} | complaint_id={complaint_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only access complaints in your department"
@@ -145,6 +160,9 @@ def require_complaint_access(
         return complaint
     
     # No permission matched
+    logger.warning(
+        f"authz.complaint.access.denied | user_id={current_user.id} | role={current_user.role.value} | complaint_id={complaint_id}"
+    )
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Access denied"

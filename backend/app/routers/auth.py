@@ -84,6 +84,7 @@ async def signup(
         existing_user = db.query(User).filter(User.email == signup_request.email).first()
         if existing_user:
             logger.warning(f"Email already registered: {signup_request.email}")
+            logger.warning(f"auth.signup.exists | email={signup_request.email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Email already registered"
@@ -105,6 +106,7 @@ async def signup(
         db.refresh(new_user)
         
         logger.info(f"✅ User created successfully: {signup_request.email}")
+        logger.info(f"auth.signup.success | email={signup_request.email}")
         
         return {
             "message": "Account created. Please verify your email.",
@@ -116,6 +118,7 @@ async def signup(
         
     except Exception as e:
         logger.error(f"❌ Signup failed: {str(e)}", exc_info=True)
+        logger.error(f"auth.signup.error | email={signup_request.email}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -175,6 +178,7 @@ async def send_otp(
         result = auth_service.send_otp(db, otp_request.email)
         
         logger.info(f"✅ OTP sent successfully to {otp_request.email}")
+        logger.info(f"auth.otp.sent | email={otp_request.email}")
         return result
         
     except ValueError as e:
@@ -187,6 +191,7 @@ async def send_otp(
         
     except AccountLockedError as e:
         logger.warning(f"Account locked: {otp_request.email}")
+        logger.warning(f"auth.otp.locked | email={otp_request.email}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(e)
@@ -194,6 +199,7 @@ async def send_otp(
     
     except Exception as e:
         logger.error(f"❌ OTP send failed: {str(e)}", exc_info=True)
+        logger.error(f"auth.otp.error | email={otp_request.email}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send OTP"
@@ -258,6 +264,7 @@ async def verify_otp(
         )
         
         logger.info(f"✅ OTP verified successfully for {verify_request.email}")
+        logger.info(f"auth.otp.verified | email={verify_request.email}")
         return result
         
     except ValueError as e:
@@ -270,6 +277,7 @@ async def verify_otp(
         
     except (OTPNotSentError, InvalidOTPError) as e:
         logger.warning(f"Invalid OTP: {verify_request.email}")
+        logger.warning(f"auth.otp.failed | email={verify_request.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
@@ -277,6 +285,7 @@ async def verify_otp(
         
     except AccountLockedError as e:
         logger.warning(f"Account locked: {verify_request.email}")
+        logger.warning(f"auth.otp.locked | email={verify_request.email}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(e)
@@ -347,6 +356,7 @@ async def login(
         
         if not user:
             logger.warning(f"User not found: {login_request.email}")
+            logger.warning(f"auth.login.failed | email={login_request.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
@@ -355,6 +365,7 @@ async def login(
         # Check if account is locked
         if user.login_locked_until and datetime.utcnow() < user.login_locked_until:
             logger.warning(f"Account locked: {login_request.email}")
+            logger.warning(f"auth.login.locked | email={login_request.email}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Account temporarily locked due to too many failed attempts"
@@ -371,6 +382,7 @@ async def login(
         # Verify password
         if not verify_password(login_request.password, user.hashed_password):
             logger.warning(f"Invalid password for: {login_request.email}")
+            logger.warning(f"auth.login.failed | email={login_request.email}")
             
             # Increment failed attempts
             user.failed_login_attempts += 1
@@ -379,6 +391,7 @@ async def login(
             if user.failed_login_attempts >= 5:
                 user.login_locked_until = datetime.utcnow() + timedelta(minutes=15)
                 db.commit()
+                logger.warning(f"auth.login.locked | email={login_request.email}")
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Account temporarily locked due to too many failed attempts"
@@ -401,6 +414,7 @@ async def login(
         )
         
         logger.info(f"✅ Login successful for {login_request.email}")
+        logger.info(f"auth.login.success | email={login_request.email}")
         
         return {
             "access_token": access_token,
@@ -412,6 +426,7 @@ async def login(
         
     except Exception as e:
         logger.error(f"❌ Login failed: {str(e)}", exc_info=True)
+        logger.error(f"auth.login.error | email={login_request.email}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
