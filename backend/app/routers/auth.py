@@ -8,9 +8,8 @@ from slowapi.util import get_remote_address
 from app.database import get_db
 from app.schemas.auth import (
     SendOTPRequest,
-    SendOTPResponse,
     VerifyOTPRequest,
-    VerifyOTPResponse
+    MessageResponse
 )
 from app.services.auth_service import (
     auth_service,
@@ -32,7 +31,7 @@ limiter = Limiter(key_func=get_remote_address)
 # SEND OTP (Rate Limited: 5 per minute)
 # ==========================================
 
-@router.post("/send-otp/", response_model=SendOTPResponse)
+@router.post("/send-otp/", response_model=MessageResponse)
 @limiter.limit("5/minute")  # ✅ NEW: Rate limit
 async def send_otp(
     request: Request,  # ✅ NEW: Required for rate limiting
@@ -40,23 +39,23 @@ async def send_otp(
     db: Session = Depends(get_db)
 ):
     """
-    Send OTP to user's phone number.
+    Resend OTP to user's email for verification.
     
     **Rate Limit:** 5 requests per minute per IP
     
     Steps:
-    1. User sends phone number
+    1. User sends email
     2. System generates 6-digit OTP
     3. OTP stored in database with 5-minute expiration
     4. Returns confirmation
     
     Args:
         request: FastAPI request (for rate limiting)
-        otp_request: Contains phone_number (validated by Pydantic)
+        otp_request: Contains email (validated by Pydantic)
         db: Database session
         
     Returns:
-        SendOTPResponse with message and phone_number
+        MessageResponse with message and email
         
     Errors:
         404: User not found
@@ -66,33 +65,33 @@ async def send_otp(
     Example:
         POST /auth/send-otp/
         {
-            "phone_number": "+919876543210"
+            "email": "user@example.com"
         }
         
         Response:
         {
-            "message": "OTP sent to +919876543210",
-            "phone_number": "+919876543210"
+            "message": "OTP sent to user@example.com",
+            "email": "user@example.com"
         }
     """
     try:
-        logger.info(f"OTP request for phone: {otp_request.phone_number}")
+        logger.info(f"OTP request for email: {otp_request.email}")
         
-        result = auth_service.send_otp(db, otp_request.phone_number)
+        result = auth_service.send_otp(db, otp_request.email)
         
-        logger.info(f"✅ OTP sent successfully to {otp_request.phone_number}")
+        logger.info(f"✅ OTP sent successfully to {otp_request.email}")
         return result
         
     except ValueError as e:
         # User not found
-        logger.warning(f"User not found: {otp_request.phone_number}")
+        logger.warning(f"User not found: {otp_request.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
         
     except AccountLockedError as e:
-        logger.warning(f"Account locked: {otp_request.phone_number}")
+        logger.warning(f"Account locked: {otp_request.email}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(e)
@@ -109,7 +108,7 @@ async def send_otp(
 # VERIFY OTP (Rate Limited: 10 per minute)
 # ==========================================
 
-@router.post("/verify-otp/", response_model=VerifyOTPResponse)
+@router.post("/verify-otp/", response_model=MessageResponse)
 @limiter.limit("10/minute")  # ✅ NEW: Rate limit
 async def verify_otp(
     request: Request,  # ✅ NEW: Required for rate limiting
@@ -117,24 +116,24 @@ async def verify_otp(
     db: Session = Depends(get_db)
 ):
     """
-    Verify OTP and return JWT access token.
+    Verify OTP for email verification.
     
     **Rate Limit:** 10 requests per minute per IP
     
     Steps:
-    1. User sends phone number and 6-digit OTP code
+    1. User sends email and 6-digit OTP code
     2. System verifies OTP matches
     3. System checks OTP isn't expired
     4. System checks failed attempts (brute force protection)
-    5. If valid: Create JWT token, return it
+    5. If valid: Mark email as verified
     
     Args:
         request: FastAPI request (for rate limiting)
-        verify_request: Contains phone_number and otp_code
+        verify_request: Contains email and otp_code
         db: Database session
         
     Returns:
-        VerifyOTPResponse with access_token and token_type
+        MessageResponse with message and email
         
     Errors:
         404: User not found
@@ -144,45 +143,45 @@ async def verify_otp(
     Example:
         POST /auth/verify-otp/
         {
-            "phone_number": "+919876543210",
+            "email": "user@example.com",
             "otp_code": "123456"
         }
         
         Response:
         {
-            "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "token_type": "bearer"
+            "message": "Email verified successfully",
+            "email": "user@example.com"
         }
     """
     try:
-        logger.info(f"OTP verification attempt for: {verify_request.phone_number}")
+        logger.info(f"OTP verification attempt for: {verify_request.email}")
         
         result = auth_service.verify_otp(
             db,
-            verify_request.phone_number,
+            verify_request.email,
             verify_request.otp_code
         )
         
-        logger.info(f"✅ OTP verified successfully for {verify_request.phone_number}")
+        logger.info(f"✅ OTP verified successfully for {verify_request.email}")
         return result
         
     except ValueError as e:
         # User not found
-        logger.warning(f"User not found: {verify_request.phone_number}")
+        logger.warning(f"User not found: {verify_request.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
         
     except (OTPNotSentError, InvalidOTPError) as e:
-        logger.warning(f"Invalid OTP: {verify_request.phone_number}")
+        logger.warning(f"Invalid OTP: {verify_request.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
         
     except AccountLockedError as e:
-        logger.warning(f"Account locked: {verify_request.phone_number}")
+        logger.warning(f"Account locked: {verify_request.email}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(e)

@@ -1,28 +1,37 @@
-from pydantic import BaseModel
+#app/schemas/auth.py
+
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 
+class SignupRequest(BaseModel):
+    """Schema for user signup."""
+    email: EmailStr
+    password: str
+    name: str
+
+
 class SendOTPRequest(BaseModel):
-    """Schema for sending OTP to a phone number."""
-    phone_number: str
-
-
-class SendOTPResponse(BaseModel):
-    """Schema for response after sending OTP."""
-    message: str
-    phone_number: str
+    """Schema for resending OTP to email for verification."""
+    email: EmailStr
 
 
 class VerifyOTPRequest(BaseModel):
-    """Schema for verifying OTP code."""
-    phone_number: str
+    """Schema for verifying OTP code for email verification."""
+    email: EmailStr
     otp_code: str
 
 
-class VerifyOTPResponse(BaseModel):
-    """Schema for response after verifying OTP."""
-    access_token: str
-    token_type: str
+class LoginRequest(BaseModel):
+    """Schema for user login."""
+    email: EmailStr
+    password: str
+
+
+class MessageResponse(BaseModel):
+    """Generic response with message and email."""
+    message: str
+    email: str
 
 
 class Token(BaseModel):

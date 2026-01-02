@@ -1,3 +1,5 @@
+# app/models/users.py
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
 from datetime import datetime
 from app.database import Base
@@ -7,12 +9,20 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=False)
-    phone_number = Column(String, unique=True, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
-    residential_address = Column(String, nullable=False)
-    is_verified = Column(Boolean, default=False)
 
+    # Basic user details
+    full_name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+
+    # 🔐 AUTH FIELDS
+    # Password-based login (OTP is NOT used for login)
+    hashed_password = Column(String, nullable=False)
+
+    # Verification status
+    # True only after successful email OTP verification
+    is_verified = Column(Boolean, default=False, nullable=False)
+
+    # 🧑 ROLE & DEPARTMENT
     role = Column(
         Enum(UserRole),
         default=UserRole.USER,
@@ -26,11 +36,11 @@ class User(Base):
         index=True  # ← Index for fast department-based queries
     )
 
-    # OTP fields
+    # 📧 EMAIL OTP FIELDS (USED ONLY FOR VERIFICATION)
     otp_secret = Column(String, nullable=True)                    # Secret for generating OTP
     otp_expires_at = Column(DateTime, nullable=True)              # When OTP expires
     failed_otp_attempts = Column(Integer, default=0)              # Count failed attempts
-    otp_locked_until = Column(DateTime, nullable=True)            # When to unlock after too many attempts
+    otp_locked_until = Column(DateTime, nullable=True)            # Lock after too many failures
 
     # Time Stamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -47,7 +57,6 @@ class User(Base):
         return self.role == UserRole.USER
     
     def can_manage_department(self, department: str) -> bool:
-
         # Admins can manage any department
         if self.is_admin():
             return True
@@ -60,5 +69,4 @@ class User(Base):
         return False
     
     def __repr__(self) -> str:
-        return f"<User(id={self.id}, email={self.email}, role={self.role}, department={self.department})>"
-
+        return f"<User(id={self.id}, email={self.email}, role={self.role})>"
