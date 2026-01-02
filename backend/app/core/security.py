@@ -45,6 +45,14 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     # Copy data to avoid modifying original
     to_encode = data.copy()
 
+    # Extract user_id and map to standard "sub" claim
+    user_id = to_encode.pop("user_id", None)
+    if user_id is not None:
+        to_encode["sub"] = str(user_id)
+
+    # Add issued at timestamp
+    to_encode["iat"] = int(datetime.utcnow().timestamp())
+
     # Set expiration time
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -91,12 +99,12 @@ def verify_token(token: str) -> Dict[str, Any]:
             algorithms=[settings.ALGORITHM]
         )
     
-        # Extract user_id from payload
-        user_id = payload.get("user_id")
+        # Extract sub from payload
+        sub = payload.get("sub")
         
-        # If no user_id, token is invalid
-        if user_id is None:
-            raise JWTError("No user_id in token")
+        # If no sub, token is invalid
+        if sub is None:
+            raise JWTError("No sub in token")
         
         return payload
         

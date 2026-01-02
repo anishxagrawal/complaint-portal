@@ -28,13 +28,15 @@ def get_current_user(
     """
     try:
         payload = verify_token(token)
-        user_id: int = payload.get("user_id")
+        sub: str = payload.get("sub")
 
-        if user_id is None:
+        if sub is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload"
             )
+        
+        user_id: int = int(sub)
 
     # ✅ FIX 2: catch broader token-related failures safely
     except (JWTError, ValueError):
