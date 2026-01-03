@@ -11,7 +11,7 @@ from app.models.complaints import Complaint
 from app.models.users import User
 from app.models.issue_types import IssueType
 from app.schemas.complaint import ComplaintCreate
-from app.enums import UserRole
+from app.enums import UserRole, is_valid_transition
 
 
 class ComplaintService:
@@ -359,6 +359,52 @@ class ComplaintService:
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail="Failed to assign complaint")
+
+    @staticmethod
+    def change_status(
+        complaint_id: int,
+        new_status: str,
+        db: Session,
+        user: User
+    ) -> Complaint:
+        """
+        Change complaint status (ADMIN + DEPT_MGR)
+        """
+        complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not complaint:
+            raise HTTPException(status_code=404, detail="Complaint not found")
+        
+        if not is_valid_transition(complaint.status, new_status):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status transition from {complaint.status} to {new_status}"
+            )
+        
+        if user.role not in [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER]:
+            raise HTTPException(
+                status_code=403,
+                detail="Only admins and department managers can change complaint status"
+            )
+        
+        try:
+            old_status = complaint.status
+            complaint.status = new_status
+            db.commit()
+            db.refresh(complaint)
+            
+            audit_logger.log_action(
+                user_id=user.id,
+                action="STATUS_CHANGE",
+                resource_type="COMPLAINT",
+                resource_id=complaint_id,
+                details=f"Status changed from {old_status} to {new_status}"
+            )
+            
+            return complaint
+
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to change complaint status")
 
 
 # Initialize service instance

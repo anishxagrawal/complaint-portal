@@ -63,97 +63,75 @@ class ComplaintStatus(str, Enum):
     Valid complaint statuses in the workflow.
     
     Workflow:
-        PENDING → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED
-           ↓
+        OPEN → ASSIGNED → IN_PROGRESS → RESOLVED
+          ↓
         REJECTED
     """
-    PENDING = "pending"           # Just submitted, awaiting assignment
-    ASSIGNED = "assigned"         # Assigned to department/officer
-    IN_PROGRESS = "in_progress"   # Officer is working on it
-    RESOLVED = "resolved"         # Issue fixed, awaiting confirmation
-    CLOSED = "closed"             # Confirmed resolved or auto-closed
-    REJECTED = "rejected"         # Invalid/duplicate complaint
+    OPEN = "open"
+    ASSIGNED = "assigned"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
 
 
-# Valid status transitions (current → new: [allowed_roles])
+# Valid status transitions (current → [allowed next states])
 STATUS_TRANSITIONS = {
-    ComplaintStatus.PENDING: {
-        ComplaintStatus.ASSIGNED: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],
-        ComplaintStatus.REJECTED: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],
-    },
-    ComplaintStatus.ASSIGNED: {
-        ComplaintStatus.IN_PROGRESS: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],
-        ComplaintStatus.REJECTED: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],
-    },
-    ComplaintStatus.IN_PROGRESS: {
-        ComplaintStatus.RESOLVED: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],
-        ComplaintStatus.ASSIGNED: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],  # Reassign
-    },
-    ComplaintStatus.RESOLVED: {
-        ComplaintStatus.CLOSED: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER, UserRole.USER],
-        ComplaintStatus.IN_PROGRESS: [UserRole.ADMIN, UserRole.DEPARTMENT_MANAGER],  # Reopen
-    },
-    ComplaintStatus.CLOSED: {
-        # Closed is final state
-    },
-    ComplaintStatus.REJECTED: {
-        # Rejected is final state
-    },
+    ComplaintStatus.OPEN: [
+        ComplaintStatus.ASSIGNED,
+        ComplaintStatus.REJECTED,
+    ],
+    ComplaintStatus.ASSIGNED: [
+        ComplaintStatus.IN_PROGRESS,
+        ComplaintStatus.REJECTED,
+    ],
+    ComplaintStatus.IN_PROGRESS: [
+        ComplaintStatus.RESOLVED,
+        ComplaintStatus.ASSIGNED,
+    ],
+    ComplaintStatus.RESOLVED: [],
+    ComplaintStatus.REJECTED: [],
 }
 
 
-def can_transition_status(
-    current_status: str,
-    new_status: str,
-    user_role: UserRole
-) -> bool:
+def is_valid_transition(current_status: str, new_status: str) -> bool:
     """
-    Check if a status transition is valid for a user role.
+    Check if a status transition is valid.
     
     Args:
         current_status: Current complaint status (string)
         new_status: Desired new status (string)
-        user_role: Role of user making the change
         
     Returns:
         True if transition is allowed, False otherwise
         
     Example:
-        can_transition_status("pending", "assigned", UserRole.ADMIN)  # True
-        can_transition_status("pending", "closed", UserRole.USER)     # False
+        is_valid_transition("open", "assigned")  # True
+        is_valid_transition("open", "resolved")  # False
     """
     try:
         current = ComplaintStatus(current_status.lower())
         new = ComplaintStatus(new_status.lower())
     except ValueError:
-        return False  # Invalid status string
+        return False
     
     if current not in STATUS_TRANSITIONS:
         return False
     
-    allowed_transitions = STATUS_TRANSITIONS[current]
-    
-    if new not in allowed_transitions:
-        return False
-    
-    allowed_roles = allowed_transitions[new]
-    
-    return user_role in allowed_roles
+    return new in STATUS_TRANSITIONS[current]
 
 
-def get_allowed_transitions(current_status: str, user_role: UserRole) -> List[str]:
+def get_valid_transitions(current_status: str) -> List[str]:
     """
-    Get list of allowed status transitions for current user.
+    Get list of valid status transitions from current state.
     
     Args:
         current_status: Current complaint status
-        user_role: User's role
         
     Returns:
         List of allowed status strings
         
     Example:
-        get_allowed_transitions("pending", UserRole.ADMIN)
+        get_valid_transitions("open")
         # Returns: ["assigned", "rejected"]
     """
     try:
@@ -164,11 +142,4 @@ def get_allowed_transitions(current_status: str, user_role: UserRole) -> List[st
     if current not in STATUS_TRANSITIONS:
         return []
     
-    allowed_transitions = STATUS_TRANSITIONS[current]
-    result = []
-    
-    for new_status, allowed_roles in allowed_transitions.items():
-        if user_role in allowed_roles:
-            result.append(new_status.value)
-    
-    return result
+    return [status.value for status in STATUS_TRANSITIONS[current]]

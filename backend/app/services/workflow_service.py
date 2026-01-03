@@ -19,7 +19,7 @@ from app.models.complaint_status_history import ComplaintStatusHistory
 from app.models.users import User
 from app.models.issue_types import IssueType
 from app.models.departments import Department
-from app.enums import ComplaintStatus, can_transition_status, get_allowed_transitions, UserRole
+from app.enums import ComplaintStatus, is_valid_transition, UserRole
 from app.utils.audit_logger import audit_logger
 from app.core.logging import get_logger
 
@@ -63,12 +63,10 @@ class WorkflowService:
         # Validate status transition
         current_status = complaint.status
         
-        if not can_transition_status(current_status, new_status, user.role):
-            allowed = get_allowed_transitions(current_status, user.role)
+        if not is_valid_transition(current_status, new_status):
             raise HTTPException(
-                status_code=403,
-                detail=f"Cannot transition from '{current_status}' to '{new_status}'. "
-                       f"Allowed transitions: {allowed}"
+                status_code=400,
+                detail=f"Invalid status transition from '{current_status}' to '{new_status}'"
             )
         
         try:
@@ -96,10 +94,6 @@ class WorkflowService:
                 complaint.resolved_by = user.id
                 if comment:
                     complaint.resolution_notes = comment
-            
-            elif new_status == ComplaintStatus.CLOSED.value:
-                complaint.closed_at = datetime.utcnow()
-                complaint.closed_by = user.id
             
             # Create history entry
             history = ComplaintStatusHistory(
@@ -222,7 +216,7 @@ class WorkflowService:
             complaint.assigned_at = datetime.utcnow()
             
             # If not yet assigned, change status to assigned
-            if complaint.status == ComplaintStatus.PENDING.value:
+            if complaint.status == ComplaintStatus.OPEN.value:
                 complaint.status = ComplaintStatus.ASSIGNED.value
             
             db.commit()

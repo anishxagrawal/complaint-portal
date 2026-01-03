@@ -26,7 +26,7 @@ from app.schemas.workflow import (
     AllowedTransitionsResponse
 )
 from app.schemas.complaint import ComplaintResponse
-from app.enums import get_allowed_transitions, UserRole
+from app.enums import UserRole
 from app.core.logging import get_logger
 
 router = APIRouter(prefix="/complaints", tags=["Workflow"])
@@ -50,30 +50,29 @@ def change_complaint_status(
     **Permissions:**
     - **Admin:** Can change any status
     - **Department Manager:** Can manage their department's complaints
-    - **Citizen:** Can only close resolved complaints
+    - **Citizen:** Cannot change status
     
     **Status Flow:**
-    ```
-    pending → assigned → in_progress → resolved → closed
+```
+    open → assigned → in_progress → resolved
        ↓
     rejected
-    ```
+```
     
     **Examples:**
-    ```json
+```json
     {
       "new_status": "assigned",
       "comment": "Assigned to Public Works department"
     }
-    ```
-    
-    ```json
+```
+```json
     {
       "new_status": "rejected",
       "reason": "Duplicate of complaint #123",
       "comment": "Already reported last week"
     }
-    ```
+```
     """
     logger.info(
         f"Status change request for complaint #{complaint_id}: "
@@ -112,11 +111,11 @@ def assign_to_officer(
     - **Citizen:** Cannot assign
     
     **Example:**
-    ```json
+```json
     {
       "officer_id": 42
     }
-    ```
+```
     """
     logger.info(
         f"Assign complaint #{complaint_id} to officer {request.officer_id} "
@@ -154,7 +153,7 @@ def get_status_history(
     **Returns:** Timeline of all status changes with who/when/why
     
     **Example Response:**
-    ```json
+```json
     {
       "count": 3,
       "data": [
@@ -171,7 +170,7 @@ def get_status_history(
         ...
       ]
     }
-    ```
+```
     """
     history = workflow_service.get_status_history(
         complaint_id=complaint_id,
@@ -208,7 +207,7 @@ def get_my_work_queue(
     - `status` (optional): Filter by status (e.g., "in_progress")
     
     **Example Response:**
-    ```json
+```json
     [
       {
         "id": 42,
@@ -220,7 +219,7 @@ def get_my_work_queue(
       },
       ...
     ]
-    ```
+```
     """
     if current_user.role == UserRole.USER:
         raise HTTPException(
@@ -240,57 +239,3 @@ def get_my_work_queue(
     )
     
     return complaints
-
-
-# ==========================================
-# GET ALLOWED TRANSITIONS
-# ==========================================
-
-@router.get("/{complaint_id}/allowed-transitions", response_model=AllowedTransitionsResponse)
-def get_allowed_status_transitions(
-    complaint_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get list of allowed status transitions for current user.
-    
-    Useful for frontend to show only valid action buttons.
-    
-    **Example Response:**
-    ```json
-    {
-      "current_status": "assigned",
-      "allowed_transitions": ["in_progress", "rejected"],
-      "message": "You can move this complaint to: in_progress, rejected"
-    }
-    ```
-    """
-    # Get complaint
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
-    if not complaint:
-        raise HTTPException(status_code=404, detail="Complaint not found")
-    
-    # Check access
-    if current_user.role == UserRole.USER and complaint.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only view your own complaints"
-        )
-    
-    if current_user.role == UserRole.DEPARTMENT_MANAGER:
-        if complaint.department != current_user.department:
-            raise HTTPException(
-                status_code=403,
-                detail="You can only manage your department's complaints"
-            )
-    
-    # Get allowed transitions
-    allowed = get_allowed_transitions(complaint.status, current_user.role)
-    
-    return {
-        "current_status": complaint.status,
-        "allowed_transitions": allowed,
-        "message": f"You can move this complaint to: {', '.join(allowed)}" if allowed 
-                   else "No transitions available (complaint is in final state)"
-    }
